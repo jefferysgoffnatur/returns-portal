@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Returns & Exchanges | Natur Athletics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="portal-header">
+    <a href="https://www.naturathletics.us" class="logo-link">
+      <img src="https://www.naturathletics.us/cdn/shop/files/2024_Natur_Athletics_Full_Horizontal_Logo_Black_59b3e33b-295e-4e43-8a2b-197b2bfbb8d9_600x.svg?v=1724418365" alt="Natur Athletics" class="logo" />
+    </a>
+  </header>
+
+  <main class="portal-main">
+
+    <!-- Step Indicator -->
+    <div class="steps-indicator" id="stepsIndicator">
+      <div class="step active" data-step="1">
+        <div class="step-number">1</div>
+        <span class="step-label">Find Order</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step" data-step="2">
+        <div class="step-number">2</div>
+        <span class="step-label">Select Items</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step" data-step="3">
+        <div class="step-number">3</div>
+        <span class="step-label">Return Details</span>
+      </div>
+      <div class="step-divider"></div>
+      <div class="step" data-step="4">
+        <div class="step-number">4</div>
+        <span class="step-label">Confirm</span>
+      </div>
+    </div>
+
+    <!-- Step 1: Order Lookup -->
+    <section class="step-panel active" id="step1">
+      <div class="panel-inner">
+        <h1 class="panel-title">Returns &amp; Exchanges</h1>
+        <p class="panel-subtitle">Enter your order details to get started. You can find your order number in your confirmation email.</p>
+
+        <form class="lookup-form" id="lookupForm" novalidate>
+          <div class="form-group">
+            <label for="orderNumber">Order Number</label>
+            <input type="text" id="orderNumber" name="orderNumber" placeholder="e.g. 3175 or NA3175 or #NA3175" autocomplete="off" required />
+          </div>
+          <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" placeholder="Email used at checkout" required />
+          </div>
+          <div class="form-error hidden" id="lookupError"></div>
+          <button type="submit" class="btn btn-primary btn-full" id="lookupBtn">
+            <span class="btn-text">Find My Order</span>
+            <span class="btn-loader hidden"></span>
+          </button>
+        </form>
+
+        <p class="help-text">Need help? <a href="mailto:support@naturathletics.us">Contact us</a></p>
+      </div>
+    </section>
+
+    <!-- Step 2: Item Selection -->
+    <section class="step-panel" id="step2">
+      <div class="panel-inner">
+        <div class="order-summary" id="orderSummary">
+          <!-- Populated by JS -->
+        </div>
+        <h2 class="panel-title">Select Items to Return</h2>
+        <p class="panel-subtitle">Choose which items you'd like to return or exchange. Only eligible items are shown.</p>
+
+        <div class="items-list" id="itemsList">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="form-error hidden" id="itemsError"></div>
+        <div class="step-actions">
+          <button class="btn btn-secondary" id="backToStep1">Back</button>
+          <button class="btn btn-primary" id="toStep3" disabled>Continue</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 3: Return Details -->
+    <section class="step-panel" id="step3">
+      <div class="panel-inner">
+        <h2 class="panel-title">Return Details</h2>
+        <p class="panel-subtitle">Tell us a bit more so we can process your return quickly.</p>
+
+        <div class="selected-items-summary" id="selectedItemsSummary">
+          <!-- Populated by JS -->
+        </div>
+
+        <form class="details-form" id="detailsForm" novalidate>
+
+          <div class="form-group">
+            <label for="returnReason">Reason for Return</label>
+            <select id="returnReason" name="returnReason" required>
+              <option value="">Select a reason...</option>
+              <option value="wrong_size">Wrong size</option>
+              <option value="wrong_item">Wrong item received</option>
+              <option value="defective">Defective or damaged</option>
+              <option value="not_as_described">Not as described</option>
+              <option value="changed_mind">Changed my mind</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="otherReasonGroup" style="display:none;">
+            <label for="otherReason">Please describe</label>
+            <textarea id="otherReason" name="otherReason" rows="3" placeholder="Tell us more..."></textarea>
+          </div>
+
+          <!-- Resolution is determined by eligibility type, shown dynamically -->
+          <div class="form-group" id="resolutionBlock">
+            <label>Resolution</label>
+            <div class="resolution-info-box" id="resolutionInfoBox">
+              <!-- Populated by JS based on return type -->
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Photos <span class="optional">(optional)</span></label>
+            <p class="field-hint">Upload photos if your item is defective or damaged. Max 6 photos, 10MB each.</p>
+            <div class="file-upload-area" id="fileUploadArea">
+              <input type="file" id="photoUpload" name="photos" accept="image/*" multiple />
+              <div class="upload-placeholder">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Drag photos here or <strong>click to upload</strong></span>
+              </div>
+              <div class="photo-previews" id="photoPreviews"></div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="additionalNotes">Additional Notes <span class="optional">(optional)</span></label>
+            <textarea id="additionalNotes" name="additionalNotes" rows="3" placeholder="Any other details we should know?"></textarea>
+          </div>
+
+          <div class="form-error hidden" id="detailsError"></div>
+          <div class="step-actions">
+            <button type="button" class="btn btn-secondary" id="backToStep2">Back</button>
+            <button type="submit" class="btn btn-primary">Review Return</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Step 4: Confirmation -->
+    <section class="step-panel" id="step4">
+      <div class="panel-inner">
+        <h2 class="panel-title">Review &amp; Submit</h2>
+        <p class="panel-subtitle">Please confirm your return details before submitting.</p>
+
+        <div class="review-block" id="reviewBlock">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="return-policy-note">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="policyNoteText">Items must be unworn and in like-new condition. US orders only. <strong>Customers are responsible for return shipping costs.</strong></span>
+        </div>
+
+        <div class="form-error hidden" id="submitError"></div>
+        <div class="step-actions">
+          <button class="btn btn-secondary" id="backToStep3">Back</button>
+          <button class="btn btn-primary" id="submitReturn">
+            <span class="btn-text">Submit Return Request</span>
+            <span class="btn-loader hidden"></span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 5: Success -->
+    <section class="step-panel" id="step5">
+      <div class="panel-inner success-panel">
+        <div class="success-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <h2 class="panel-title">Return Submitted!</h2>
+        <p class="panel-subtitle" id="successMessage">We've received your return request and will be in touch within 1-2 business days with next steps.</p>
+        <div class="success-details" id="successDetails"></div>
+        <a href="https://www.naturathletics.us" class="btn btn-primary">Continue Shopping</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="portal-footer">
+    <p>Questions? <a href="mailto:support@naturathletics.us">support@naturathletics.us</a></p>
+    <p><a href="https://www.naturathletics.us/policies/refund-policy">Return Policy</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
