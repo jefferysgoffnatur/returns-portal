@@ -303,56 +303,6 @@ app.get('/api/variants/:productId', async (req, res) => {
 });
 
 // ============================================
-// DIAGNOSTIC: See recent order names (remove before going live)
-// ============================================
-
-app.get('/api/debug-orders', async (req, res) => {
-  const results = {};
-  const token = getToken();
-  results.tokenPrefix = token ? token.slice(0, 12) + '...' : 'NOT SET';
-
-  // Test 1: shop.json — no special scopes needed
-  try {
-    const shop = await shopifyGet('shop.json');
-    results.shopAccess = 'OK — ' + shop.shop.name;
-  } catch (err) {
-    results.shopAccess = 'FAILED — ' + err.message;
-  }
-
-  // Test 2: orders count
-  try {
-    const url = `https://${SHOPIFY_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/orders/count.json?status=any`;
-    const r = await fetch(url, { headers: { 'X-Shopify-Access-Token': token } });
-    const body = await r.text();
-    results.ordersCount = `HTTP ${r.status} — ${body.slice(0, 200)}`;
-  } catch (err) {
-    results.ordersCount = 'FAILED — ' + err.message;
-  }
-
-  // Test 3: last 60 days
-  try {
-    const url = `https://${SHOPIFY_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/orders.json?limit=5&status=any&fields=id,name,created_at`;
-    const r = await fetch(url, { headers: { 'X-Shopify-Access-Token': token } });
-    const data = await r.json();
-    results.orders_last60days = data.orders ? data.orders.map(o => ({ name: o.name, date: o.created_at })) : data;
-  } catch (err) {
-    results.orders_last60days = 'FAILED — ' + err.message;
-  }
-
-  // Test 4: all time (needs read_all_orders)
-  try {
-    const url = `https://${SHOPIFY_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/orders.json?limit=5&status=any&created_at_min=2020-01-01&fields=id,name,created_at`;
-    const r = await fetch(url, { headers: { 'X-Shopify-Access-Token': token } });
-    const data = await r.json();
-    results.orders_alltime = data.orders ? data.orders.map(o => ({ name: o.name, date: o.created_at })) : data;
-  } catch (err) {
-    results.orders_alltime = 'FAILED — ' + err.message;
-  }
-
-  res.json(results);
-});
-
-// ============================================
 // ROUTE: ORDER LOOKUP
 // ============================================
 
