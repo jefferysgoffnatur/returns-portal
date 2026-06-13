@@ -250,25 +250,33 @@ app.get('/auth/callback', async (req, res) => {
     console.log('[OAuth] Token response:', JSON.stringify(data));
 
     if (data.access_token) {
-      // Write the token to .env
-      const fs   = require('fs');
-      const envPath = require('path').join(__dirname, '.env');
-      let envContent = fs.readFileSync(envPath, 'utf8');
-      envContent = envContent.replace(/SHOPIFY_ACCESS_TOKEN=.*/, `SHOPIFY_ACCESS_TOKEN=${data.access_token}`);
-      fs.writeFileSync(envPath, envContent);
-
-      // Update in-memory env
+      // Update in-memory env so current process works immediately
       process.env.SHOPIFY_ACCESS_TOKEN = data.access_token;
+      console.log(`[OAuth] New access token: ${data.access_token}`);
 
-      console.log(`[OAuth] Access token saved: ${data.access_token.slice(0, 12)}...`);
+      // Try to write to local .env (works in dev, skipped on Railway/Render)
+      try {
+        const fs = require('fs');
+        const envPath = require('path').join(__dirname, '.env');
+        let envContent = fs.readFileSync(envPath, 'utf8');
+        envContent = envContent.replace(/SHOPIFY_ACCESS_TOKEN=.*/, `SHOPIFY_ACCESS_TOKEN=${data.access_token}`);
+        fs.writeFileSync(envPath, envContent);
+        console.log('[OAuth] Token written to .env');
+      } catch (writeErr) {
+        console.log('[OAuth] Could not write .env (expected on Railway) — copy token from logs above.');
+      }
+
       res.send(`
-        <h2 style="font-family:sans-serif;padding:40px;">
-          ✅ Authorization successful!<br><br>
-          <span style="font-size:16px;color:#555;">
-            Your access token has been saved. You can close this tab and use the returns portal.<br><br>
-            <a href="/">Go to Returns Portal</a>
-          </span>
-        </h2>
+        <html><body style="font-family:sans-serif;padding:40px;max-width:600px;margin:auto;">
+          <h2>Authorization successful!</h2>
+          <p>Your new Shopify access token is:</p>
+          <code style="display:block;background:#f4f4f4;padding:16px;border-radius:6px;word-break:break-all;font-size:14px;">${data.access_token}</code>
+          <p style="margin-top:24px;color:#555;">
+            <strong>If running on Railway/Render:</strong> Copy the token above and paste it into your
+            <code>SHOPIFY_ACCESS_TOKEN</code> environment variable in your hosting dashboard, then redeploy.
+          </p>
+          <p><a href="/">Go to Returns Portal</a></p>
+        </body></html>
       `);
     } else {
       console.error('[OAuth] Failed:', data);
