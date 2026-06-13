@@ -443,6 +443,8 @@ document.getElementById('detailsForm').addEventListener('submit', (e) => {
   state.additionalNotes = document.getElementById('additionalNotes').value.trim();
 
   renderStep4();
+  document.getElementById('policyAcknowledged').checked = false;
+  document.getElementById('submitReturn').disabled = true;
   goToStep(4);
 });
 
@@ -533,11 +535,25 @@ function renderStep4() {
   }
 }
 
-document.getElementById('backToStep3').addEventListener('click', () => goToStep(3));
+document.getElementById('backToStep3').addEventListener('click', () => {
+  document.getElementById('policyAcknowledged').checked = false;
+  document.getElementById('submitReturn').disabled = true;
+  goToStep(3);
+});
+
+document.getElementById('policyAcknowledged').addEventListener('change', function () {
+  document.getElementById('submitReturn').disabled = !this.checked;
+});
 
 document.getElementById('submitReturn').addEventListener('click', async () => {
   const submitError = document.getElementById('submitError');
   const btn = document.getElementById('submitReturn');
+
+  if (!document.getElementById('policyAcknowledged').checked) {
+    showError(submitError, 'Please confirm you have read the Return & Exchange Policy before submitting.');
+    return;
+  }
+
   hideError(submitError);
   setLoading(btn, true);
 

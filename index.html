@@ -197,10 +197,17 @@
           <span id="policyNoteText">Items must be unworn and in like-new condition. US orders only. <strong>Customers are responsible for return shipping costs.</strong></span>
         </div>
 
+        <div class="policy-acknowledgment">
+          <label class="policy-check-label">
+            <input type="checkbox" id="policyAcknowledged" />
+            <span>I have read and agree to the <a href="https://www.naturathletics.us/pages/return-policy" target="_blank" rel="noopener">Return &amp; Exchange Policy</a></span>
+          </label>
+        </div>
+
         <div class="form-error hidden" id="submitError"></div>
         <div class="step-actions">
           <button class="btn btn-secondary" id="backToStep3">Back</button>
-          <button class="btn btn-primary" id="submitReturn">
+          <button class="btn btn-primary" id="submitReturn" disabled>
             <span class="btn-text" id="submitBtnText">Submit Request</span>
             <span class="btn-loader hidden"></span>
           </button>

@@ -801,6 +801,34 @@ textarea.error {
   color: var(--black);
 }
 
+.policy-acknowledgment {
+  margin-bottom: 20px;
+}
+
+.policy-check-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--gray-800);
+  line-height: 1.5;
+}
+
+.policy-check-label input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: var(--black);
+}
+
+.policy-check-label a {
+  color: var(--black);
+  text-decoration: underline;
+}
+
 /* ============================================
    SUCCESS PANEL
    ============================================ */
