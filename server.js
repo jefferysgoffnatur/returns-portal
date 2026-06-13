@@ -112,15 +112,76 @@ function buildTransporter() {
   });
 }
 
-async function sendReturnEmail({ rmaNumber, order, items, eligibilityType, reason, notes, photoCount }) {
+async function sendCustomerEmail({ rmaNumber, order, items, requestType, exchangeSelections }) {
+  const transporter = buildTransporter();
+  if (!transporter) {
+    console.log('[Email] SMTP not configured — skipping customer confirmation.');
+    return;
+  }
+
+  const typeLabel = requestType === 'warranty' ? 'Warranty Claim' : requestType === 'exchange' ? 'Exchange Request' : 'Return Request';
+
+  let instructions = '';
+  let instructionsHtml = '';
+
+  if (requestType === 'exchange') {
+    const lines = items.map(i => {
+      const sel = exchangeSelections && exchangeSelections[i.id];
+      return `${i.title}${i.variantTitle ? ` (${i.variantTitle})` : ''} → ${sel ? sel.variantTitle : 'see details'}`;
+    });
+    instructions = `You've requested the following exchanges:\n${lines.map(l => `- ${l}`).join('\n')}\n\nWe'll send you a return label within 1 business day. Once we receive your items, we'll ship your replacement.`;
+    instructionsHtml = `<p>You've requested the following exchanges:</p><ul>${lines.map(l => `<li>${l}</li>`).join('')}</ul><p>We'll send you a return label within 1 business day. Once we receive your items, we'll ship your replacement.</p>`;
+  } else if (requestType === 'warranty') {
+    instructions = `Our team will review your warranty claim and follow up within 1–2 business days. Please do not ship your item back until you hear from us.`;
+    instructionsHtml = `<p>${instructions}</p>`;
+  } else {
+    instructions = `We'll send you a return label within 1 business day. Please ship your items back in their original packaging. Once received, we'll process your refund within 5–10 business days.`;
+    instructionsHtml = `<p>${instructions}</p>`;
+  }
+
+  const html = `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#222;">
+      <img src="https://www.naturathletics.us/cdn/shop/files/2024_Natur_Athletics_Full_Horizontal_Logo_Black_59b3e33b-295e-4e43-8a2b-197b2bfbb8d9_600x.svg?v=1724418365" alt="Natur Athletics" style="height:36px;margin-bottom:24px;display:block;" />
+      <h2 style="font-size:20px;font-weight:600;margin:0 0 4px;">${typeLabel} Received</h2>
+      <p style="color:#888;margin:0 0 24px;font-size:14px;">RMA: <strong>${rmaNumber}</strong> &mdash; Order ${order.name}</p>
+      ${instructionsHtml}
+      <p style="color:#888;font-size:12px;margin-top:32px;border-top:1px solid #eee;padding-top:16px;">
+        Questions? Contact us at <a href="mailto:support@naturathletics.us" style="color:#222;">support@naturathletics.us</a>
+      </p>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from: EMAIL_FROM,
+    to: order.email,
+    subject: `${typeLabel} Received — ${rmaNumber}`,
+    text: `${typeLabel} received.\n\nRMA: ${rmaNumber}\nOrder: ${order.name}\n\n${instructions}`,
+    html
+  });
+
+  console.log(`[Email] Customer confirmation sent to ${order.email} for ${rmaNumber}`);
+}
+
+async function sendReturnEmail({ rmaNumber, order, items, requestType, eligibilityType, reason, notes, photoCount, exchangeSelections }) {
   const transporter = buildTransporter();
   if (!transporter) {
     console.log('[Email] SMTP not configured — skipping notification email.');
     return;
   }
 
-  const typeLabel = eligibilityType === 'warranty' ? 'Warranty Claim' : 'Return Request';
+  const type = requestType || eligibilityType;
+  const typeLabel = type === 'warranty' ? 'Warranty Claim' : type === 'exchange' ? 'Exchange Request' : 'Return Request';
   const itemList  = items.map(i => `- ${i.title}${i.variantTitle ? ` (${i.variantTitle})` : ''}`).join('\n');
+
+  // Exchange detail rows for email
+  const exchangeRows = type === 'exchange' && exchangeSelections
+    ? `<tr><td style="padding:8px;font-weight:bold;color:#555;">Replacements</td><td style="padding:8px;">${
+        items.map(i => {
+          const sel = exchangeSelections[i.id];
+          return `${i.title}${i.variantTitle ? ` (${i.variantTitle})` : ''} → ${sel ? sel.variantTitle : 'TBD'}`;
+        }).join('<br/>')
+      }</td></tr>`
+    : '';
 
   const html = `
     <h2>New ${typeLabel} — ${rmaNumber}</h2>
@@ -130,6 +191,7 @@ async function sendReturnEmail({ rmaNumber, order, items, eligibilityType, reaso
       <tr><td style="padding:8px;font-weight:bold;color:#555;">Customer Email</td><td style="padding:8px;">${order.email}</td></tr>
       <tr><td style="padding:8px;font-weight:bold;color:#555;">Type</td><td style="padding:8px;">${typeLabel}</td></tr>
       <tr><td style="padding:8px;font-weight:bold;color:#555;">Items</td><td style="padding:8px;">${items.map(i => `${i.title}${i.variantTitle ? ` (${i.variantTitle})` : ''}`).join('<br/>')}</td></tr>
+      ${exchangeRows}
       <tr><td style="padding:8px;font-weight:bold;color:#555;">Reason</td><td style="padding:8px;">${reason}</td></tr>
       ${notes ? `<tr><td style="padding:8px;font-weight:bold;color:#555;">Notes</td><td style="padding:8px;">${notes}</td></tr>` : ''}
       ${photoCount > 0 ? `<tr><td style="padding:8px;font-weight:bold;color:#555;">Photos</td><td style="padding:8px;">${photoCount} attached</td></tr>` : ''}
@@ -215,6 +277,20 @@ app.get('/auth/callback', async (req, res) => {
   } catch (err) {
     console.error('[OAuth] Error:', err.message);
     res.status(500).send('OAuth error: ' + err.message);
+  }
+});
+
+// ============================================
+// ROUTE: PRODUCT VARIANTS (for exchange size/color selection)
+// ============================================
+
+app.get('/api/variants/:productId', async (req, res) => {
+  try {
+    const data = await shopifyGet(`products/${req.params.productId}/variants.json?fields=id,title,option1,option2,option3`);
+    res.json({ variants: data.variants || [] });
+  } catch (err) {
+    console.error('[Variants] Error:', err.message);
+    res.status(500).json({ error: 'Could not load product options.' });
   }
 });
 
@@ -381,8 +457,10 @@ app.post('/api/submit-return', upload.fields(photoFields), async (req, res) => {
     orderId,
     orderName,
     email,
+    requestType = 'return',
     eligibilityType,
     items: itemsJson,
+    exchangeSelections: exchangeSelectionsJson,
     reason,
     additionalNotes
   } = req.body;
@@ -396,6 +474,13 @@ app.post('/api/submit-return', upload.fields(photoFields), async (req, res) => {
     items = JSON.parse(itemsJson);
   } catch {
     return res.status(400).json({ error: 'Invalid item data.' });
+  }
+
+  let exchangeSelections = {};
+  try {
+    exchangeSelections = JSON.parse(exchangeSelectionsJson || '{}');
+  } catch {
+    exchangeSelections = {};
   }
 
   // Generate RMA number
@@ -417,8 +502,20 @@ app.post('/api/submit-return', upload.fields(photoFields), async (req, res) => {
 
   try {
     // Tag and note the Shopify order
-    const tag   = eligibilityType === 'warranty' ? 'warranty-claim-requested' : 'return-requested';
-    const note  = `[${rmaNumber}] ${eligibilityType === 'warranty' ? 'Warranty claim' : 'Return'} requested via portal on ${new Date().toISOString().split('T')[0]}. Reason: ${reason}. Items: ${items.map(i => i.title).join(', ')}.`;
+    const tagMap = { warranty: 'warranty-claim-requested', exchange: 'exchange-requested', return: 'return-requested' };
+    const tag = tagMap[requestType] || 'return-requested';
+
+    let noteDetails = `Items: ${items.map(i => i.title).join(', ')}. Reason: ${reason}.`;
+    if (requestType === 'exchange' && Object.keys(exchangeSelections).length > 0) {
+      const exchangeLines = items.map(i => {
+        const sel = exchangeSelections[i.id];
+        return sel ? `${i.title} → ${sel.variantTitle}` : i.title;
+      });
+      noteDetails += ` Replacements requested: ${exchangeLines.join(', ')}.`;
+    }
+
+    const typeWord = requestType === 'warranty' ? 'Warranty claim' : requestType === 'exchange' ? 'Exchange' : 'Return';
+    const note = `[${rmaNumber}] ${typeWord} requested via portal on ${new Date().toISOString().split('T')[0]}. ${noteDetails}`;
 
     // Fetch current order tags first to avoid overwriting
     const currentOrder = await shopifyGet(`orders/${orderId}.json?fields=id,tags,note`);
@@ -437,25 +534,41 @@ app.post('/api/submit-return', upload.fields(photoFields), async (req, res) => {
     console.error('[Shopify] Failed to update order:', err.message);
   }
 
-  // Send email notification
+  // Send store notification email
   try {
     await sendReturnEmail({
       rmaNumber,
       order: { id: orderId, name: orderName, email },
       items,
+      requestType,
       eligibilityType,
       reason,
       notes: additionalNotes,
-      photoCount
+      photoCount,
+      exchangeSelections
     });
   } catch (err) {
-    console.error('[Email] Failed to send notification:', err.message);
+    console.error('[Email] Failed to send store notification:', err.message);
   }
 
+  // Send customer confirmation email
+  try {
+    await sendCustomerEmail({
+      rmaNumber,
+      order: { id: orderId, name: orderName, email },
+      items,
+      requestType,
+      exchangeSelections
+    });
+  } catch (err) {
+    console.error('[Email] Failed to send customer confirmation:', err.message);
+  }
+
+  const typeWord = requestType === 'warranty' ? 'warranty claim' : requestType === 'exchange' ? 'exchange request' : 'return request';
   return res.json({
     success: true,
     rmaNumber,
-    message: `Your ${eligibilityType === 'warranty' ? 'warranty claim' : 'return request'} (${rmaNumber}) has been submitted. We'll be in touch within 1–2 business days.`
+    message: `Your ${typeWord} (${rmaNumber}) has been submitted. We'll be in touch within 1–2 business days.`
   });
 });
 

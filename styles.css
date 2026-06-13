@@ -897,3 +897,113 @@ textarea.error {
     gap: 8px;
   }
 }
+
+/* ============================================
+   EXCHANGE / RESOLUTION CHOICE
+   ============================================ */
+
+.resolution-choice {
+  margin: 20px 0 0;
+}
+
+.resolution-choice-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #222;
+  margin: 0 0 12px;
+}
+
+.resolution-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.resolution-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: #fff;
+}
+
+.resolution-option-card input[type="radio"] {
+  margin-top: 2px;
+  accent-color: #222;
+  flex-shrink: 0;
+}
+
+.resolution-option-card.selected {
+  border-color: #222;
+  background: #fafafa;
+}
+
+.resolution-option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.resolution-option-content strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: #222;
+}
+
+.resolution-option-content span {
+  font-size: 13px;
+  color: #666;
+}
+
+/* Exchange variant selectors */
+.exchange-item-selector {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.exchange-item-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 10px;
+}
+
+.exchange-variant-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  color: #222;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  cursor: pointer;
+}
+
+.exchange-variant-select:focus {
+  outline: none;
+  border-color: #222;
+}
+
+/* Exchange resolution box */
+.resolution-fixed.exchange {
+  background: #f0f7ff;
+  border: 1px solid #cce0ff;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #1a5fa8;
+}

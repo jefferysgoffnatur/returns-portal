@@ -11,7 +11,9 @@ const state = {
   currentStep: 1,
   order: null,
   selectedItems: [],
-  eligibilityType: null, // 'return' or 'warranty'
+  eligibilityType: null,   // 'return' | 'warranty' | 'mixed'
+  requestType: 'return',   // 'return' | 'exchange' | 'warranty'
+  exchangeSelections: {},  // { itemId: { variantId, variantTitle } }
   returnReason: null,
   additionalNotes: null,
   photos: [],
@@ -23,12 +25,9 @@ const state = {
 // ============================================
 
 function goToStep(step) {
-  // Hide all panels
   document.querySelectorAll('.step-panel').forEach(p => p.classList.remove('active'));
-  // Show target panel
   document.getElementById(`step${step}`).classList.add('active');
 
-  // Update step indicators (only steps 1-4)
   if (step <= 4) {
     document.querySelectorAll('.step').forEach(el => {
       const s = parseInt(el.dataset.step);
@@ -36,13 +35,11 @@ function goToStep(step) {
       if (s < step) el.classList.add('completed');
       if (s === step) el.classList.add('active');
     });
-
     document.querySelectorAll('.step-divider').forEach((d, i) => {
       d.classList.toggle('completed', i < step - 1);
     });
   }
 
-  // Hide step indicator on success screen
   document.getElementById('stepsIndicator').style.display = step === 5 ? 'none' : 'flex';
   state.currentStep = step;
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -100,13 +97,20 @@ document.getElementById('lookupForm').addEventListener('submit', async (e) => {
 function renderStep2() {
   const order = state.order;
 
-  // Order summary
   const orderDate = new Date(order.createdAt);
   document.getElementById('orderSummary').innerHTML = `
     <strong>Order ${order.name}</strong> &mdash; Placed ${formatDate(orderDate)} &mdash; ${order.daysSinceOrder} days ago
   `;
 
-  // Render items
+  // Reset resolution choice
+  document.getElementById('resolutionChoice').classList.add('hidden');
+  document.getElementById('optionReturn').classList.add('selected');
+  document.getElementById('optionExchange').classList.remove('selected');
+  document.querySelector('input[name="resolutionType"][value="return"]').checked = true;
+  state.requestType = 'return';
+  state.selectedItems = [];
+  state.exchangeSelections = {};
+
   const list = document.getElementById('itemsList');
   list.innerHTML = '';
 
@@ -151,13 +155,11 @@ function toggleItem(card, item) {
     state.selectedItems.push(item);
   }
 
-  // Determine eligibility type from selected items
-  // If any selected item is warranty-only, the whole request is warranty
+  // Determine eligibility type
   const hasWarrantyOnly = state.selectedItems.some(i => i.eligibilityType === 'warranty');
   const hasReturn = state.selectedItems.some(i => i.eligibilityType === 'return');
 
   if (hasWarrantyOnly && hasReturn) {
-    // Mixed — disallow for simplicity, show guidance
     state.eligibilityType = 'mixed';
   } else if (hasWarrantyOnly) {
     state.eligibilityType = 'warranty';
@@ -165,10 +167,32 @@ function toggleItem(card, item) {
     state.eligibilityType = 'return';
   }
 
+  // Show resolution choice only for return-eligible items (not warranty)
+  const resolutionChoice = document.getElementById('resolutionChoice');
+  if (state.selectedItems.length > 0 && state.eligibilityType === 'return') {
+    resolutionChoice.classList.remove('hidden');
+  } else {
+    resolutionChoice.classList.add('hidden');
+    // Reset to return if warranty or mixed
+    document.querySelector('input[name="resolutionType"][value="return"]').checked = true;
+    document.getElementById('optionReturn').classList.add('selected');
+    document.getElementById('optionExchange').classList.remove('selected');
+    state.requestType = state.eligibilityType === 'warranty' ? 'warranty' : 'return';
+  }
+
   document.getElementById('toStep3').disabled = state.selectedItems.length === 0;
   const itemsError = document.getElementById('itemsError');
   if (state.selectedItems.length > 0) hideError(itemsError);
 }
+
+// Resolution choice radio buttons
+document.querySelectorAll('input[name="resolutionType"]').forEach(radio => {
+  radio.addEventListener('change', (e) => {
+    state.requestType = e.target.value;
+    document.getElementById('optionReturn').classList.toggle('selected', e.target.value === 'return');
+    document.getElementById('optionExchange').classList.toggle('selected', e.target.value === 'exchange');
+  });
+});
 
 document.getElementById('backToStep1').addEventListener('click', () => goToStep(1));
 
@@ -176,29 +200,44 @@ document.getElementById('toStep3').addEventListener('click', () => {
   const itemsError = document.getElementById('itemsError');
 
   if (state.selectedItems.length === 0) {
-    showError(itemsError, 'Please select at least one item to return.');
+    showError(itemsError, 'Please select at least one item.');
     return;
   }
 
   if (state.eligibilityType === 'mixed') {
-    showError(itemsError, 'Please submit warranty claims and standard returns separately. Select only items from the same eligibility type at once.');
+    showError(itemsError, 'Please submit warranty claims and standard returns separately.');
     return;
   }
 
   hideError(itemsError);
+
+  // If warranty, set requestType to warranty
+  if (state.eligibilityType === 'warranty') {
+    state.requestType = 'warranty';
+  }
+
   renderStep3();
   goToStep(3);
 });
 
 // ============================================
-// STEP 3: RETURN DETAILS
+// STEP 3: DETAILS
 // ============================================
 
-function renderStep3() {
+async function renderStep3() {
+  const isExchange = state.requestType === 'exchange';
+  const isWarranty = state.requestType === 'warranty';
+
+  // Update heading
+  const titles = { return: 'Return Details', exchange: 'Exchange Details', warranty: 'Warranty Claim Details' };
+  document.getElementById('step3Title').textContent = titles[state.requestType] || 'Details';
+  document.getElementById('reasonLabel').textContent = isExchange ? 'Reason for Exchange' : isWarranty ? 'Reason for Claim' : 'Reason for Return';
+
   // Selected items summary
   const summaryEl = document.getElementById('selectedItemsSummary');
+  const typeLabel = isWarranty ? 'Warranty Claim' : isExchange ? 'Exchange' : 'Return';
   summaryEl.innerHTML = `
-    <h4>Selected for ${state.eligibilityType === 'warranty' ? 'Warranty Claim' : 'Return'}</h4>
+    <h4>Selected for ${typeLabel}</h4>
     ${state.selectedItems.map(item => `
       <div class="summary-item">
         <span>${escapeHtml(item.title)}${item.variantTitle ? ` — ${escapeHtml(item.variantTitle)}` : ''}</span>
@@ -207,11 +246,75 @@ function renderStep3() {
     `).join('')}
   `;
 
-  // Update reason options based on eligibility type
+  // Exchange: show variant selectors
+  const exchangeGroup = document.getElementById('exchangeSelectionsGroup');
+  const exchangeList = document.getElementById('exchangeSelectionsList');
+  exchangeList.innerHTML = '';
+
+  if (isExchange) {
+    exchangeGroup.classList.remove('hidden');
+    exchangeList.innerHTML = '<p class="field-hint">Loading available options...</p>';
+
+    // Fetch variants for each selected item's product
+    const variantsByProduct = {};
+    for (const item of state.selectedItems) {
+      if (item.productId && !variantsByProduct[item.productId]) {
+        try {
+          const res = await fetch(`${API_BASE}/variants/${item.productId}`);
+          const data = await res.json();
+          variantsByProduct[item.productId] = data.variants || [];
+        } catch {
+          variantsByProduct[item.productId] = [];
+        }
+      }
+    }
+
+    exchangeList.innerHTML = '';
+    state.selectedItems.forEach(item => {
+      const variants = variantsByProduct[item.productId] || [];
+      const otherVariants = variants.filter(v => v.title !== (item.variantTitle || 'Default Title'));
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'exchange-item-selector';
+
+      if (otherVariants.length === 0) {
+        wrapper.innerHTML = `
+          <div class="exchange-item-name">${escapeHtml(item.title)}${item.variantTitle ? ` — ${escapeHtml(item.variantTitle)}` : ''}</div>
+          <p class="field-hint" style="color:#c0392b;">No other sizes or colors are currently available for this item. Please return for a refund instead.</p>
+        `;
+      } else {
+        wrapper.innerHTML = `
+          <div class="exchange-item-name">${escapeHtml(item.title)}${item.variantTitle ? ` — ${escapeHtml(item.variantTitle)}` : ''}</div>
+          <select class="exchange-variant-select" data-item-id="${escapeHtml(item.id)}">
+            <option value="">Select a size / color...</option>
+            ${otherVariants.map(v => `<option value="${escapeHtml(v.id)}" data-title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</option>`).join('')}
+          </select>
+        `;
+      }
+
+      exchangeList.appendChild(wrapper);
+    });
+
+    // Wire up variant selects
+    exchangeList.querySelectorAll('.exchange-variant-select').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const itemId = e.target.dataset.itemId;
+        const opt = e.target.options[e.target.selectedIndex];
+        state.exchangeSelections[itemId] = {
+          variantId: e.target.value,
+          variantTitle: opt.dataset.title || ''
+        };
+      });
+    });
+  } else {
+    exchangeGroup.classList.add('hidden');
+  }
+
+  // Update reason options
   const reasonSelect = document.getElementById('returnReason');
   reasonSelect.innerHTML = '<option value="">Select a reason...</option>';
 
-  if (state.eligibilityType === 'warranty') {
+  if (isWarranty) {
     reasonSelect.innerHTML += `
       <option value="stitching_defect">Stitching came undone</option>
       <option value="material_separation">Materials came apart</option>
@@ -229,9 +332,9 @@ function renderStep3() {
     `;
   }
 
-  // Update resolution info box
+  // Resolution info box
   const resolutionBox = document.getElementById('resolutionInfoBox');
-  if (state.eligibilityType === 'warranty') {
+  if (isWarranty) {
     resolutionBox.innerHTML = `
       <div class="resolution-fixed warranty">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -241,25 +344,35 @@ function renderStep3() {
         </div>
       </div>
     `;
+  } else if (isExchange) {
+    resolutionBox.innerHTML = `
+      <div class="resolution-fixed exchange">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        <div>
+          <strong>Exchange</strong>
+          <span>We'll send a return label. Once we receive your item, we'll ship your replacement.</span>
+        </div>
+      </div>
+    `;
   } else {
     resolutionBox.innerHTML = `
       <div class="resolution-fixed refund">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
         <div>
           <strong>Refund to Original Payment Method</strong>
-          <span>Processed within 5–10 business days after we receive and inspect your return.</span>
+          <span>Processed within 5–10 business days after we receive your return.</span>
         </div>
       </div>
     `;
   }
 
-  // Update photo field hint
+  // Photo field
   const photoHint = document.querySelector('.field-hint');
-  if (state.eligibilityType === 'warranty') {
+  if (isWarranty) {
     photoHint.textContent = 'Photos are required for warranty claims. Please show the defect clearly. Max 6 photos, 10MB each.';
     document.getElementById('photoUpload').required = true;
   } else {
-    photoHint.textContent = 'Upload photos if your item is defective or damaged. Max 6 photos, 10MB each.';
+    photoHint.textContent = 'Upload photos if helpful. Max 6 photos, 10MB each.';
     document.getElementById('photoUpload').required = false;
   }
 }
@@ -302,13 +415,28 @@ document.getElementById('detailsForm').addEventListener('submit', (e) => {
 
   const reason = document.getElementById('returnReason').value;
   if (!reason) {
-    showError(detailsError, 'Please select a reason for your return.');
+    showError(detailsError, 'Please select a reason.');
     return;
   }
 
-  if (state.eligibilityType === 'warranty' && state.photos.length === 0) {
+  if (state.requestType === 'warranty' && state.photos.length === 0) {
     showError(detailsError, 'Please upload at least one photo showing the defect for warranty claims.');
     return;
+  }
+
+  // Validate exchange selections
+  if (state.requestType === 'exchange') {
+    for (const item of state.selectedItems) {
+      const sel = state.exchangeSelections[item.id];
+      if (!sel || !sel.variantId) {
+        const exchangeList = document.getElementById('exchangeSelectionsList');
+        const hasNoOptions = exchangeList.querySelector(`[data-item-id="${item.id}"]`) === null;
+        if (!hasNoOptions) {
+          showError(detailsError, `Please select a replacement size/color for ${escapeHtml(item.title)}.`);
+          return;
+        }
+      }
+    }
   }
 
   state.returnReason = reason;
@@ -336,9 +464,27 @@ function renderStep4() {
     other_defect: 'Other manufacturing defect'
   };
 
-  const resolutionLabel = state.eligibilityType === 'warranty'
-    ? 'Warranty Replacement (same size & color)'
-    : 'Refund to original payment method';
+  const resolutionLabel = state.requestType === 'warranty'
+    ? 'Warranty replacement (same size & color)'
+    : state.requestType === 'exchange'
+      ? 'Exchange for a different size/color'
+      : 'Refund to original payment method';
+
+  // Exchange detail lines
+  let exchangeDetails = '';
+  if (state.requestType === 'exchange') {
+    exchangeDetails = `
+      <div class="review-row">
+        <span class="review-label">Replacement</span>
+        <span class="review-value">${state.selectedItems.map(item => {
+          const sel = state.exchangeSelections[item.id];
+          return sel && sel.variantTitle
+            ? `${escapeHtml(item.title)} → <strong>${escapeHtml(sel.variantTitle)}</strong>`
+            : escapeHtml(item.title);
+        }).join('<br/>')}</span>
+      </div>
+    `;
+  }
 
   const reviewBlock = document.getElementById('reviewBlock');
   reviewBlock.innerHTML = `
@@ -348,7 +494,7 @@ function renderStep4() {
     </div>
     <div class="review-row">
       <span class="review-label">Request Type</span>
-      <span class="review-value">${state.eligibilityType === 'warranty' ? 'Warranty Claim' : 'Return'}</span>
+      <span class="review-value">${state.requestType === 'warranty' ? 'Warranty Claim' : state.requestType === 'exchange' ? 'Exchange' : 'Return'}</span>
     </div>
     <div class="review-row">
       <span class="review-label">Items</span>
@@ -356,6 +502,7 @@ function renderStep4() {
         `${escapeHtml(i.title)}${i.variantTitle ? ` (${escapeHtml(i.variantTitle)})` : ''}`
       ).join('<br/>')}</span>
     </div>
+    ${exchangeDetails}
     <div class="review-row">
       <span class="review-label">Reason</span>
       <span class="review-value">${escapeHtml(reasonLabels[state.returnReason] || state.returnReason)}</span>
@@ -376,12 +523,13 @@ function renderStep4() {
     </div>` : ''}
   `;
 
-  // Update policy note based on type
   const policyNote = document.getElementById('policyNoteText');
-  if (state.eligibilityType === 'warranty') {
-    policyNote.innerHTML = 'Warranty covers manufacturing defects within <strong>6 months</strong> of delivery. Normal wear and tear, misuse, or damage from water/heat are not covered. You are responsible for return shipping costs.';
+  if (state.requestType === 'warranty') {
+    policyNote.innerHTML = 'Warranty covers manufacturing defects within <strong>6 months</strong> of delivery. Normal wear and tear is not covered. You are responsible for return shipping costs.';
+  } else if (state.requestType === 'exchange') {
+    policyNote.innerHTML = 'Items must be unworn and in like-new condition. You are responsible for return shipping costs. Your replacement will ship once we receive your return.';
   } else {
-    policyNote.innerHTML = 'Items must be unworn and in like-new condition to qualify for a refund. You are responsible for return shipping costs. Please allow 5–10 business days for processing after we receive your return.';
+    policyNote.innerHTML = 'Items must be unworn and in like-new condition to qualify for a refund. You are responsible for return shipping costs. Allow 5–10 business days after we receive your return.';
   }
 }
 
@@ -398,8 +546,10 @@ document.getElementById('submitReturn').addEventListener('click', async () => {
     formData.append('orderId', state.order.id);
     formData.append('orderName', state.order.name);
     formData.append('email', state.order.email);
+    formData.append('requestType', state.requestType);
     formData.append('eligibilityType', state.eligibilityType);
     formData.append('items', JSON.stringify(state.selectedItems));
+    formData.append('exchangeSelections', JSON.stringify(state.exchangeSelections));
     formData.append('reason', state.returnReason);
     formData.append('additionalNotes', state.additionalNotes || '');
     state.photos.forEach((photo, i) => formData.append(`photo_${i}`, photo));
@@ -432,17 +582,35 @@ document.getElementById('submitReturn').addEventListener('click', async () => {
 // ============================================
 
 function renderSuccess(data) {
-  document.getElementById('successMessage').textContent = data.message;
+  const headingEl = document.getElementById('successHeading');
+  const messageEl = document.getElementById('successMessage');
+  const detailsEl = document.getElementById('successDetails');
 
-  const shippingInstructions = state.eligibilityType === 'warranty'
-    ? `Our team will review your warranty claim and respond within 5–7 business days. Do not ship your item back until you receive approval from us.`
-    : `Please ship your unworn, like-new item(s) back to us at your own cost. We recommend using a trackable shipping method. Once received and inspected, your refund will be processed within 5–10 business days.`;
-
-  document.getElementById('successDetails').innerHTML = `
-    <strong>Return Request #${escapeHtml(data.rmaNumber)}</strong><br/>
-    ${shippingInstructions}<br/><br/>
-    A confirmation email has been sent to <strong>${escapeHtml(state.order.email)}</strong>.
-  `;
+  if (state.requestType === 'exchange') {
+    headingEl.textContent = 'Exchange Submitted!';
+    messageEl.textContent = data.message || "We've received your exchange request.";
+    detailsEl.innerHTML = `
+      <strong>Exchange Request #${escapeHtml(data.rmaNumber)}</strong><br/>
+      We'll send you a return label within 1 business day. Please ship your items back in their original packaging. Once we receive them, we'll ship your replacement.<br/><br/>
+      A confirmation email has been sent to <strong>${escapeHtml(state.order.email)}</strong>.
+    `;
+  } else if (state.requestType === 'warranty') {
+    headingEl.textContent = 'Warranty Claim Submitted!';
+    messageEl.textContent = data.message || "We've received your warranty claim.";
+    detailsEl.innerHTML = `
+      <strong>Warranty Claim #${escapeHtml(data.rmaNumber)}</strong><br/>
+      Our team will review your claim and respond within 1–2 business days. Do not ship your item back until you hear from us.<br/><br/>
+      A confirmation email has been sent to <strong>${escapeHtml(state.order.email)}</strong>.
+    `;
+  } else {
+    headingEl.textContent = 'Return Submitted!';
+    messageEl.textContent = data.message || "We've received your return request.";
+    detailsEl.innerHTML = `
+      <strong>Return Request #${escapeHtml(data.rmaNumber)}</strong><br/>
+      We'll send you a return label within 1 business day. Please ship your unworn items back in their original packaging. Your refund will be processed within 5–10 business days of receiving your return.<br/><br/>
+      A confirmation email has been sent to <strong>${escapeHtml(state.order.email)}</strong>.
+    `;
+  }
 }
 
 // ============================================

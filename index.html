@@ -81,6 +81,27 @@
           <!-- Populated by JS -->
         </div>
 
+        <!-- Resolution choice: shown for return-eligible items only -->
+        <div class="resolution-choice hidden" id="resolutionChoice">
+          <p class="resolution-choice-label">What would you like to do?</p>
+          <div class="resolution-options">
+            <label class="resolution-option-card selected" id="optionReturn">
+              <input type="radio" name="resolutionType" value="return" checked />
+              <div class="resolution-option-content">
+                <strong>Return for a refund</strong>
+                <span>Refunded to your original payment method</span>
+              </div>
+            </label>
+            <label class="resolution-option-card" id="optionExchange">
+              <input type="radio" name="resolutionType" value="exchange" />
+              <div class="resolution-option-content">
+                <strong>Exchange for a different size or color</strong>
+                <span>We'll send you a return label and ship your replacement once received</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
         <div class="form-error hidden" id="itemsError"></div>
         <div class="step-actions">
           <button class="btn btn-secondary" id="backToStep1">Back</button>
@@ -89,11 +110,11 @@
       </div>
     </section>
 
-    <!-- Step 3: Return Details -->
+    <!-- Step 3: Return/Exchange Details -->
     <section class="step-panel" id="step3">
       <div class="panel-inner">
-        <h2 class="panel-title">Return Details</h2>
-        <p class="panel-subtitle">Tell us a bit more so we can process your return quickly.</p>
+        <h2 class="panel-title" id="step3Title">Return Details</h2>
+        <p class="panel-subtitle" id="step3Subtitle">Tell us a bit more so we can process your request quickly.</p>
 
         <div class="selected-items-summary" id="selectedItemsSummary">
           <!-- Populated by JS -->
@@ -101,8 +122,15 @@
 
         <form class="details-form" id="detailsForm" novalidate>
 
+          <!-- Exchange: size/color selection per item -->
+          <div class="form-group hidden" id="exchangeSelectionsGroup">
+            <label>What would you like instead?</label>
+            <p class="field-hint">Select your desired size and color for each item.</p>
+            <div id="exchangeSelectionsList"><!-- populated by JS --></div>
+          </div>
+
           <div class="form-group">
-            <label for="returnReason">Reason for Return</label>
+            <label for="returnReason" id="reasonLabel">Reason for Return</label>
             <select id="returnReason" name="returnReason" required>
               <option value="">Select a reason...</option>
               <option value="wrong_size">Wrong size</option>
@@ -148,7 +176,7 @@
           <div class="form-error hidden" id="detailsError"></div>
           <div class="step-actions">
             <button type="button" class="btn btn-secondary" id="backToStep2">Back</button>
-            <button type="submit" class="btn btn-primary">Review Return</button>
+            <button type="submit" class="btn btn-primary" id="reviewBtn">Review Request</button>
           </div>
         </form>
       </div>
@@ -173,7 +201,7 @@
         <div class="step-actions">
           <button class="btn btn-secondary" id="backToStep3">Back</button>
           <button class="btn btn-primary" id="submitReturn">
-            <span class="btn-text">Submit Return Request</span>
+            <span class="btn-text" id="submitBtnText">Submit Request</span>
             <span class="btn-loader hidden"></span>
           </button>
         </div>
@@ -186,7 +214,7 @@
         <div class="success-icon">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         </div>
-        <h2 class="panel-title">Return Submitted!</h2>
+        <h2 class="panel-title" id="successHeading">Request Submitted!</h2>
         <p class="panel-subtitle" id="successMessage">We've received your return request and will be in touch within 1-2 business days with next steps.</p>
         <div class="success-details" id="successDetails"></div>
         <a href="https://www.naturathletics.us" class="btn btn-primary">Continue Shopping</a>
