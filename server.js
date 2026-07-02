@@ -250,31 +250,15 @@ app.get('/auth/callback', async (req, res) => {
     console.log('[OAuth] Token response:', JSON.stringify(data));
 
     if (data.access_token) {
-      // Update in-memory env so current process works immediately
       process.env.SHOPIFY_ACCESS_TOKEN = data.access_token;
       console.log(`[OAuth] New access token: ${data.access_token}`);
-
-      // Try to write to local .env (works in dev, skipped on Railway/Render)
-      try {
-        const fs = require('fs');
-        const envPath = require('path').join(__dirname, '.env');
-        let envContent = fs.readFileSync(envPath, 'utf8');
-        envContent = envContent.replace(/SHOPIFY_ACCESS_TOKEN=.*/, `SHOPIFY_ACCESS_TOKEN=${data.access_token}`);
-        fs.writeFileSync(envPath, envContent);
-        console.log('[OAuth] Token written to .env');
-      } catch (writeErr) {
-        console.log('[OAuth] Could not write .env (expected on Railway) — copy token from logs above.');
-      }
 
       res.send(`
         <html><body style="font-family:sans-serif;padding:40px;max-width:600px;margin:auto;">
           <h2>Authorization successful!</h2>
-          <p>Your new Shopify access token is:</p>
-          <code style="display:block;background:#f4f4f4;padding:16px;border-radius:6px;word-break:break-all;font-size:14px;">${data.access_token}</code>
-          <p style="margin-top:24px;color:#555;">
-            <strong>If running on Railway/Render:</strong> Copy the token above and paste it into your
-            <code>SHOPIFY_ACCESS_TOKEN</code> environment variable in your hosting dashboard, then redeploy.
-          </p>
+          <p>Copy this token and paste it into <strong>SHOPIFY_ACCESS_TOKEN</strong> in your Railway Variables, then save.</p>
+          <code style="display:block;background:#f4f4f4;padding:16px;border-radius:6px;word-break:break-all;font-size:14px;margin:16px 0;">${data.access_token}</code>
+          <p style="color:#555;">Scopes granted: ${data.scope}</p>
           <p><a href="/">Go to Returns Portal</a></p>
         </body></html>
       `);
