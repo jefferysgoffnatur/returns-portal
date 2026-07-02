@@ -8,7 +8,7 @@ const express    = require('express');
 const cors       = require('cors');
 const multer     = require('multer');
 const path       = require('path');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -23,13 +23,10 @@ const SHOPIFY_SCOPES      = 'read_orders,read_all_orders,write_orders';
 // Access token — loaded dynamically so it picks up updates after OAuth
 function getToken() { return process.env.SHOPIFY_ACCESS_TOKEN; }
 
-// Email config (optional — set in .env to enable notifications)
-const EMAIL_HOST     = process.env.EMAIL_HOST;
-const EMAIL_PORT     = parseInt(process.env.EMAIL_PORT || '587', 10);
-const EMAIL_USER     = process.env.EMAIL_USER;
-const EMAIL_PASS     = process.env.EMAIL_PASS;
+// Email config
 const EMAIL_FROM     = process.env.EMAIL_FROM     || 'returns@naturathletics.us';
 const EMAIL_TO_STORE = process.env.EMAIL_TO_STORE || 'support@naturathletics.us';
+const resend         = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const RETURN_WINDOW_DAYS  = 30;
 const WARRANTY_WINDOW_DAYS = 180;
@@ -102,25 +99,14 @@ async function shopifyPut(endpoint, body) {
 // EMAIL HELPER
 // ============================================
 
-function buildTransporter() {
-  if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) return null;
-  return nodemailer.createTransport({
-    host: EMAIL_HOST,
-    port: EMAIL_PORT,
-    secure: EMAIL_PORT === 465,
-    auth: { user: EMAIL_USER, pass: EMAIL_PASS },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000
-  });
+function getResend() {
+  if (!resend) console.log('[Email] RESEND_API_KEY not set — skipping email.');
+  return resend;
 }
 
 async function sendCustomerEmail({ rmaNumber, order, items, requestType, exchangeSelections }) {
-  const transporter = buildTransporter();
-  if (!transporter) {
-    console.log('[Email] SMTP not configured — skipping customer confirmation.');
-    return;
-  }
+  const client = getResend();
+  if (!client) return;
 
   const typeLabel = requestType === 'warranty' ? 'Warranty Claim' : requestType === 'exchange' ? 'Exchange Request' : 'Return Request';
 
@@ -154,29 +140,25 @@ async function sendCustomerEmail({ rmaNumber, order, items, requestType, exchang
     </div>
   `;
 
-  await transporter.sendMail({
+  const { error } = await client.emails.send({
     from: EMAIL_FROM,
     to: order.email,
     subject: `${typeLabel} Received — ${rmaNumber}`,
-    text: `${typeLabel} received.\n\nRMA: ${rmaNumber}\nOrder: ${order.name}\n\n${instructions}`,
     html
   });
 
+  if (error) throw new Error(error.message);
   console.log(`[Email] Customer confirmation sent to ${order.email} for ${rmaNumber}`);
 }
 
 async function sendReturnEmail({ rmaNumber, order, items, requestType, eligibilityType, reason, notes, photoCount, exchangeSelections }) {
-  const transporter = buildTransporter();
-  if (!transporter) {
-    console.log('[Email] SMTP not configured — skipping notification email.');
-    return;
-  }
+  const client = getResend();
+  if (!client) return;
 
   const type = requestType || eligibilityType;
   const typeLabel = type === 'warranty' ? 'Warranty Claim' : type === 'exchange' ? 'Exchange Request' : 'Return Request';
   const itemList  = items.map(i => `- ${i.title}${i.variantTitle ? ` (${i.variantTitle})` : ''}`).join('\n');
 
-  // Exchange detail rows for email
   const exchangeRows = type === 'exchange' && exchangeSelections
     ? `<tr><td style="padding:8px;font-weight:bold;color:#555;">Replacements</td><td style="padding:8px;">${
         items.map(i => {
@@ -200,19 +182,18 @@ async function sendReturnEmail({ rmaNumber, order, items, requestType, eligibili
       ${photoCount > 0 ? `<tr><td style="padding:8px;font-weight:bold;color:#555;">Photos</td><td style="padding:8px;">${photoCount} attached</td></tr>` : ''}
     </table>
     <p style="margin-top:16px;font-size:12px;color:#888;">
-      View order in Shopify:
-      <a href="https://${SHOPIFY_DOMAIN}/admin/orders/${order.id}">Order ${order.name}</a>
+      View order in Shopify: <a href="https://${SHOPIFY_DOMAIN}/admin/orders/${order.id}">Order ${order.name}</a>
     </p>
   `;
 
-  await transporter.sendMail({
+  const { error } = await client.emails.send({
     from: EMAIL_FROM,
     to: EMAIL_TO_STORE,
     subject: `[${typeLabel}] ${rmaNumber} — Order ${order.name}`,
-    text: `New ${typeLabel}\n\nRMA: ${rmaNumber}\nOrder: ${order.name}\nEmail: ${order.email}\nItems:\n${itemList}\nReason: ${reason}\nNotes: ${notes || 'None'}`,
     html
   });
 
+  if (error) throw new Error(error.message);
   console.log(`[Email] Notification sent for ${rmaNumber}`);
 }
 
