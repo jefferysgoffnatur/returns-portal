@@ -18,7 +18,7 @@ const SHOPIFY_DOMAIN      = process.env.SHOPIFY_STORE_DOMAIN;
 const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2024-10';
 const SHOPIFY_CLIENT_ID   = process.env.SHOPIFY_CLIENT_ID;
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
-const SHOPIFY_SCOPES      = 'read_orders,read_all_orders';
+const SHOPIFY_SCOPES      = 'read_orders,read_all_orders,write_orders';
 
 // Access token — loaded dynamically so it picks up updates after OAuth
 function getToken() { return process.env.SHOPIFY_ACCESS_TOKEN; }
