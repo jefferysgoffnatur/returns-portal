@@ -104,7 +104,7 @@ async function shopifyPut(endpoint, body) {
 
 function buildTransporter() {
   if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASS) return null;
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: EMAIL_HOST,
     port: EMAIL_PORT,
     secure: EMAIL_PORT === 465,
