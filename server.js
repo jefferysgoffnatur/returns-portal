@@ -108,7 +108,10 @@ function buildTransporter() {
     host: EMAIL_HOST,
     port: EMAIL_PORT,
     secure: EMAIL_PORT === 465,
-    auth: { user: EMAIL_USER, pass: EMAIL_PASS }
+    auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000
   });
 }
 
